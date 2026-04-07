@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SENAMHI — WEB SCRAPING</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: #fff;
+    border-bottom: 1px solid #dde1e7;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .header-logo {
+    background: #1565c0;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a2e;
+  }
+  .header h1 span { color: #1565c0; }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 1100px;
+    margin: 28px auto;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: #fff;
+    border: 1px solid #dde1e7;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #dde1e7;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-header .badge {
+    margin-left: auto;
+    background: #e8f0fe;
+    color: #1565c0;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  /* Badge verde para cuando el inventario viene del archivo guardado */
+  .card-header .badge-saved {
+    margin-left: auto;
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ── Botones ── */
+  .btn-area {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .btn {
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background .15s, opacity .15s;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-blue  { background: #1565c0; color: #fff; }
+  .btn-blue:hover:not(:disabled)  { background: #1252a3; }
+  .btn-green { background: #2e7d32; color: #fff; }
+  .btn-green:hover:not(:disabled) { background: #256127; }
+
+  /* ── Selección resumen ── */
+  .sel-info {
+    padding: 10px 16px;
+    background: #f8f9fa;
+    border-top: 1px solid #dde1e7;
+    font-size: 13px;
+    color: #555;
+    min-height: 40px;
+  }
+  .sel-info strong { color: #1565c0; }
+
+  /* ── Banner inventario cargado ── */
+  .inv-loaded-banner {
+    display: none;
+    margin: 0 16px 12px;
+    padding: 8px 12px;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #2e7d32;
+    align-items: center;
+    gap: 6px;
+  }
+  .inv-loaded-banner.visible {
+    display: flex;
+  }
+
+  /* ── Árbol de inventario ── */
+
+  /* Estado de carga inicial */
+  .loading-inv {
+    padding: 32px 16px;
+    text-align: center;
+    color: #aaa;
+    font-size: 13px;
+  }
+  .loading-inv .spinner {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid #dde1e7;
+    border-top-color: #1565c0;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin-bottom: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .dep-row {
+    border-bottom: 1px solid #edf0f3;
+  }
+  .dep-label {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    user-select: none;
+    transition: background .12s;
+  }
+  .dep-label:hover { background: #f4f6f8; }
+  .dep-label .count {
+    margin-left: auto;
+    font-size: 11px;
+    color: #888;
+    font-weight: 400;
+  }
+  .dep-label .arrow {
+    font-size: 10px;
+    color: #aaa;
+    transition: transform .2s;
+  }
+  .dep-label.open .arrow { transform: rotate(90deg); }
+
+  .dep-children { display: none; background: #fafbfc; }
+  .dep-children.open { display: block; }
+
+  .tipo-label {
+    padding: 6px 16px 4px 36px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .est-row {
+    padding: 6px 16px 6px 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .est-row:hover { background: #eef2fb; }
+  .est-row input[type="checkbox"] {
+    accent-color: #1565c0;
+    width: 14px; height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .dep-check {
+    accent-color: #1565c0;
+    width: 14px; height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ── Panel de progreso ── */
+  .progress-panel { padding: 0; }
+
+  .progress-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #dde1e7;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc; flex-shrink: 0;
+    transition: background .3s;
+  }
+  .dot.active { background: #2e7d32; }
+  .dot.error  { background: #c62828; }
+
+  /* Región en progreso */
+  .region-list-wrap {
+    position: relative;
+  }
+  .region-list {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 520px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #1565c0 #edf0f3;
+  }
+  .region-list::-webkit-scrollbar {
+    width: 8px;
+  }
+  .region-list::-webkit-scrollbar-track {
+    background: #edf0f3;
+    border-radius: 4px;
+  }
+  .region-list::-webkit-scrollbar-thumb {
+    background: #1565c0;
+    border-radius: 4px;
+  }
+  .region-list::-webkit-scrollbar-thumb:hover {
+    background: #1252a3;
+  }
+
+  /* Botones de scroll arriba/abajo */
+  .scroll-btns {
+    display: flex;
+    gap: 6px;
+    padding: 8px 18px;
+    border-top: 1px solid #edf0f3;
+    justify-content: flex-end;
+  }
+  .scroll-btn {
+    background: #f4f6f8;
+    border: 1px solid #dde1e7;
+    border-radius: 4px;
+    width: 28px; height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s;
+    color: #555;
+  }
+  .scroll-btn:hover { background: #e8f0fe; color: #1565c0; border-color: #1565c0; }
+
+  /* Mismo scrollbar para el árbol de inventario */
+  .inv-list {
+    max-height: 480px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #1565c0 #edf0f3;
+  }
+  .inv-list::-webkit-scrollbar { width: 8px; }
+  .inv-list::-webkit-scrollbar-track { background: #edf0f3; border-radius: 4px; }
+  .inv-list::-webkit-scrollbar-thumb { background: #1565c0; border-radius: 4px; }
+  .inv-list::-webkit-scrollbar-thumb:hover { background: #1252a3; }
+
+  .region-item {
+    border: 1px solid #dde1e7;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .region-top {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+  }
+  .region-name {
+    font-weight: 600;
+    font-size: 13px;
+    flex: 1;
+  }
+  .region-count {
+    font-size: 12px;
+    color: #555;
+  }
+  .region-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .s-espera  { background: #f4f6f8; color: #888; }
+  .s-proceso { background: #e3f2fd; color: #1565c0; }
+  .s-ok      { background: #e8f5e9; color: #2e7d32; }
+  .s-vacio   { background: #fff8e1; color: #f57f17; }
+  .s-error   { background: #ffebee; color: #c62828; }
+
+  /* Barra de progreso */
+  .pbar-wrap {
+    height: 4px;
+    background: #edf0f3;
+  }
+  .pbar-fill {
+    height: 100%;
+    background: #1565c0;
+    transition: width .3s;
+    width: 0%;
+  }
+  .pbar-fill.done { background: #2e7d32; }
+
+  /* Estación actual dentro de la región */
+  .region-current {
+    padding: 6px 14px 8px;
+    font-size: 12px;
+    color: #555;
+    background: #fafbfc;
+    min-height: 0;
+    display: none;
+  }
+  .region-current.visible { display: block; }
+
+  /* Vacío */
+  .empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: #aaa;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; line-height: 1.7; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #323232; color: #fff;
+    padding: 12px 20px; border-radius: 6px;
+    font-size: 13px;
+    opacity: 0; transform: translateY(10px);
+    transition: all .3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok   { background: #2e7d32; }
+  .toast.err  { background: #c62828; }
+
+  /* ── Tarjetas individuales de descarga ── */
+  .descarga-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .descarga-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1565c0;
+  }
+  .descarga-counter {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1565c0;
+    background: #e8f0fe;
+    padding: 2px 10px;
+    border-radius: 12px;
+  }
+  .est-descarga-card {
+    border: 1px solid #dde1e7;
+    border-radius: 6px;
+    padding: 10px 14px;
+    background: #fff;
+  }
+  .edc-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .edc-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    background: #1565c0;
+    border-radius: 10px;
+    padding: 1px 7px;
+    flex-shrink: 0;
+  }
+  .edc-nombre {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+    color: #1a1a2e;
+  }
+  .edc-tipo {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 2px;
+  }
+  .edc-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .descarga-fin {
+    margin-top: 8px;
+    padding: 12px 14px;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #2e7d32;
+  }
+
+  /* No inv */
+  .no-inv {
+    padding: 32px 16px;
+    text-align: center;
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">SENAMHI</div>
+  <h1>WEB SCRAPING</h1>
+</div>
+
+<div class="container">
+
+  <!-- ── SIDEBAR ── -->
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">Acciones</div>
+      <div class="btn-area">
+        <button class="btn btn-blue" id="btnSondear" onclick="sondear()">
+          🔍 Sondear inventario
+        </button>
+        <button class="btn btn-green" id="btnDescargar" onclick="descargar()" disabled>
+          ⬇ Descargar selección
+        </button>
+      </div>
+      <div class="sel-info" id="selInfo">Ninguna estación seleccionada</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" id="invHeader">
+        Inventario de Estaciones
+        <span class="badge" id="badgeTotal" style="display:none"></span>
+      </div>
+      <!-- Banner verde cuando el inventario viene del archivo guardado -->
+      <div class="inv-loaded-banner" id="invBanner">
+        ✅ Inventario cargado desde sondeo previo
+      </div>
+      <div class="inv-list" id="invTree">
+        <!-- Spinner mientras se verifica si hay inventario guardado -->
+        <div class="loading-inv" id="loadingInv">
+          <div class="spinner"></div>
+          <div>Verificando inventario...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PROGRESO ── -->
+  <div class="card progress-panel">
+    <div class="progress-header">
+      <div class="dot" id="dot"></div>
+      Progreso del sondeo
+    </div>
+    <div class="region-list-wrap">
+      <div class="region-list" id="regionList">
+        <div class="empty-state">
+          <div class="icon">🗺️</div>
+          <p>Aquí verás el avance región por región<br>cuando inicies el sondeo.</p>
+        </div>
+      </div>
+      <div class="scroll-btns">
+        <button class="scroll-btn" title="Subir" onclick="scrollRegion(-150)">▲</button>
+        <button class="scroll-btn" title="Bajar" onclick="scrollRegion(150)">▼</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let inventario = {};
+let evtSource  = null;
+let operando   = false;
+
+// Estado por departamento en el panel
+const depState = {};  // dep -> { el, barra, current, total, idx }
+
+// ─── Toast ───────────────────────────────────────────────────
+function toast(msg, tipo = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + tipo;
+  setTimeout(() => t.className = "toast", 3000);
+}
+
+// ─── Botones ─────────────────────────────────────────────────
+function setBusy(busy) {
+  operando = busy;
+  document.getElementById("btnSondear").disabled  = busy;
+  document.getElementById("btnDescargar").disabled = busy || getSeleccion().length === 0;
+  document.getElementById("dot").className = "dot" + (busy ? " active" : "");
+}
+
+// ─── SSE ─────────────────────────────────────────────────────
+function startSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource("/api/progreso");
+  evtSource.onmessage = e => handleEvento(JSON.parse(e.data));
+}
+
+function handleEvento(ev) {
+  if (ev.tipo === "ping") return;
+
+  if (ev.tipo === "dep_inicio") {
+    crearRegionItem(ev.dep, ev.dep_nombre);
+    setRegionStatus(ev.dep, "s-proceso", "Iniciando...");
+  }
+  else if (ev.tipo === "dep_total") {
+    setRegionCount(ev.dep, 0, ev.total);
+  }
+  else if (ev.tipo === "estacion") {
+    setRegionCount(ev.dep, ev.idx, ev.total);
+    setRegionCurrent(ev.dep, `${ev.idx}/${ev.total} — ${ev.nombre}`);
+  }
+  else if (ev.tipo === "dep_ok") {
+    setRegionStatus(ev.dep, "s-ok", "Completado");
+    setRegionPct(ev.dep, 100);
+    setRegionCurrent(ev.dep, null);
+  }
+  else if (ev.tipo === "dep_vacio") {
+    setRegionStatus(ev.dep, "s-vacio", "Sin estaciones");
+    setRegionPct(ev.dep, 100);
+    setRegionCurrent(ev.dep, null);
+  }
+  else if (ev.tipo === "dep_error") {
+    setRegionStatus(ev.dep, "s-error", "Error");
+    setRegionCurrent(ev.dep, null);
+  }
+  else if (ev.tipo === "sondeo_ok") {
+    setBusy(false);
+    toast("Sondeo completado ✓", "ok");
+    cargarInventario(false); // false = no es carga inicial (no mostrar banner "previo")
+  }
+  else if (ev.tipo === "descarga_est") {
+    const list = document.getElementById("regionList");
+
+    // Primera estación: limpiar panel y poner encabezado general
+    if (!depState["__descarga__"]) {
+      list.innerHTML = "";
+      depState["__descarga__"] = { total: ev.total };
+
+      // Encabezado general de progreso
+      const header = document.createElement("div");
+      header.id = "descarga-header";
+      header.className = "descarga-header";
+      header.innerHTML = `
+        <span class="descarga-title">⬇ Descargando estaciones</span>
+        <span class="descarga-counter" id="descarga-counter">0 / ${ev.total}</span>
+      `;
+      list.appendChild(header);
+
+      // Barra general
+      const barraWrap = document.createElement("div");
+      barraWrap.className = "pbar-wrap";
+      barraWrap.style.margin = "0 0 12px 0";
+      barraWrap.innerHTML = `<div class="pbar-fill" id="descarga-barra"></div>`;
+      list.appendChild(barraWrap);
+    }
+
+    // Actualizar contador y barra general
+    document.getElementById("descarga-counter").textContent = `${ev.idx} / ${ev.total}`;
+    const pct = Math.round(ev.idx / ev.total * 100);
+    const barraGen = document.getElementById("descarga-barra");
+    if (barraGen) { barraGen.style.width = pct + "%"; }
+
+    // Crear tarjeta individual para esta estación
+    const key = `__est_${ev.idx}__`;
+    const card = document.createElement("div");
+    card.className = "est-descarga-card";
+    card.id = "edc-" + ev.idx;
+    card.innerHTML = `
+      <div class="edc-top">
+        <span class="edc-num">${ev.idx}/${ev.total}</span>
+        <span class="edc-nombre">${ev.dep_nombre} — ${ev.nombre}</span>
+        <span class="edc-status s-proceso" id="edc-st-${ev.idx}">Descargando...</span>
+      </div>
+      <div class="edc-tipo">${ev.tipo_est && ev.tipo_est !== "—" ? ev.tipo_est : ""}</div>
+      <div class="pbar-wrap" style="margin:4px 0 0"><div class="pbar-fill" id="edc-bar-${ev.idx}" style="width:50%"></div></div>`;
+    list.appendChild(card);
+    list.scrollTop = list.scrollHeight;
+  }
+  else if (ev.tipo === "descarga_ok") {
+    // Marcar última tarjeta como completada
+    const total = depState["__descarga__"] ? depState["__descarga__"].total : 0;
+    for (let i = 1; i <= total; i++) {
+      const st = document.getElementById("edc-st-" + i);
+      const bar = document.getElementById("edc-bar-" + i);
+      if (st && st.classList.contains("s-proceso")) {
+        st.className = "edc-status s-ok";
+        st.textContent = "✓ Descargado";
+      }
+      if (bar) { bar.style.width = "100%"; bar.classList.add("done"); }
+    }
+    // Barra general al 100%
+    const barraGen = document.getElementById("descarga-barra");
+    if (barraGen) { barraGen.style.width = "100%"; barraGen.classList.add("done"); }
+
+    // Aviso final
+    const list = document.getElementById("regionList");
+    const aviso = document.createElement("div");
+    aviso.className = "descarga-fin";
+    aviso.innerHTML = `✅ Descarga completada — <strong>${total}</strong> estación(es) guardadas correctamente.`;
+    list.appendChild(aviso);
+    list.scrollTop = list.scrollHeight;
+
+    setBusy(false);
+    toast("Descarga completada ✓", "ok");
+  }
+  else if (ev.tipo === "error_fatal") {
+    setBusy(false);
+    document.getElementById("dot").className = "dot error";
+    toast("Error: " + ev.msg, "err");
+  }
+}
+
+// ─── Crear tarjeta de región ─────────────────────────────────
+function crearRegionItem(dep, nombre) {
+  const list = document.getElementById("regionList");
+
+  // Limpiar estado vacío
+  const empty = list.querySelector(".empty-state");
+  if (empty) empty.remove();
+
+  const el = document.createElement("div");
+  el.className = "region-item";
+  el.id = "ri-" + dep;
+  el.innerHTML = `
+    <div class="region-top">
+      <span class="region-name">${nombre}</span>
+      <span class="region-count" id="rc-${dep}"></span>
+      <span class="region-status s-espera" id="rs-${dep}">Esperando</span>
+    </div>
+    <div class="pbar-wrap"><div class="pbar-fill" id="rb-${dep}"></div></div>
+    <div class="region-current" id="rcu-${dep}"></div>`;
+  list.appendChild(el);
+  list.scrollTop = list.scrollHeight;
+
+  depState[dep] = { total: 0 };
+}
+
+function setRegionStatus(dep, cls, txt) {
+  const el = document.getElementById("rs-" + dep);
+  if (el) { el.className = "region-status " + cls; el.textContent = txt; }
+}
+function setRegionCount(dep, idx, total) {
+  depState[dep] = { total };
+  const el = document.getElementById("rc-" + dep);
+  if (el) el.textContent = `${idx} / ${total}`;
+  if (total > 0) setRegionPct(dep, Math.round(idx / total * 100));
+}
+function setRegionPct(dep, pct) {
+  const bar = document.getElementById("rb-" + dep);
+  if (!bar) return;
+  bar.style.width = pct + "%";
+  if (pct >= 100) bar.classList.add("done");
+}
+function setRegionCurrent(dep, txt) {
+  const el = document.getElementById("rcu-" + dep);
+  if (!el) return;
+  if (txt) { el.textContent = txt; el.classList.add("visible"); }
+  else { el.textContent = ""; el.classList.remove("visible"); }
+}
+
+// ─── Cargar inventario ───────────────────────────────────────
+// esCargaInicial = true  → viene del archivo guardado (muestra banner verde)
+// esCargaInicial = false → viene de un sondeo recién terminado
+async function cargarInventario(esCargaInicial = true) {
+  const res  = await fetch("/api/inventario");
+  const data = await res.json();
+
+  // Quitar spinner de carga inicial siempre
+  const loadingEl = document.getElementById("loadingInv");
+  if (loadingEl) loadingEl.remove();
+
+  if (!data.ok || !Object.keys(data.inventario).length) {
+    // No hay inventario: mostrar mensaje normal
+    document.getElementById("invTree").innerHTML = `
+      <div class="no-inv">
+        Aún no hay inventario.<br>
+        Haz clic en <strong>Sondear inventario</strong>.
+      </div>`;
+    return;
+  }
+
+  inventario = data.inventario;
+  renderTree();
+
+  const total = Object.values(inventario)
+    .flatMap(t => Object.values(t))
+    .reduce((s, a) => s + a.length, 0);
+
+  // Badge de cantidad
+  const badge = document.getElementById("badgeTotal");
+  badge.textContent = total + " estaciones";
+  badge.style.display = "";
+
+  // Banner verde solo cuando se carga desde archivo previo al abrir la página
+  if (esCargaInicial) {
+    document.getElementById("invBanner").classList.add("visible");
+  }
+}
+
+// ─── Árbol de inventario ─────────────────────────────────────
+function renderTree() {
+  const tree = document.getElementById("invTree");
+  tree.innerHTML = "";
+
+  for (const [dep, tipos] of Object.entries(inventario).sort()) {
+    const total   = Object.values(tipos).reduce((s, a) => s + a.length, 0);
+    const nombre  = dep.replace(/-/g, " ").toUpperCase();
+    const wrapper = document.createElement("div");
+    wrapper.className = "dep-row";
+
+    wrapper.innerHTML = `
+      <div class="dep-label" onclick="toggleDep(this, '${dep}')">
+        <input type="checkbox" class="dep-check" data-dep="${dep}"
+               onclick="event.stopPropagation()"
+               onchange="toggleDepAll(this)">
+        ${nombre}
+        <span class="count">${total} estaciones</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="dep-children" id="ch-${dep}">
+        ${renderTipos(dep, tipos)}
+      </div>`;
+    tree.appendChild(wrapper);
+  }
+  updateSel();
+}
+
+function renderTipos(dep, tipos) {
+  let html = "";
+  for (const [tipo, ests] of Object.entries(tipos).sort()) {
+    html += `<div class="tipo-label">${tipo}</div>`;
+    for (const est of [...ests].sort()) {
+      html += `
+        <div class="est-row">
+          <input type="checkbox" class="est-check"
+                 data-dep="${dep}" data-tipo="${tipo}" data-est="${est}"
+                 onchange="updateSel()">
+          ${est}
+        </div>`;
+    }
+  }
+  return html;
+}
+
+function toggleDep(label, dep) {
+  label.classList.toggle("open");
+  document.getElementById("ch-" + dep).classList.toggle("open");
+}
+
+function toggleDepAll(chk) {
+  const dep = chk.dataset.dep;
+  document.querySelectorAll(`.est-check[data-dep="${dep}"]`)
+    .forEach(c => c.checked = chk.checked);
+  updateSel();
+}
+
+function getSeleccion() {
+  return Array.from(document.querySelectorAll(".est-check:checked"))
+    .map(c => [c.dataset.dep, c.dataset.tipo, c.dataset.est]);
+}
+
+function updateSel() {
+  const sel  = getSeleccion();
+  const info = document.getElementById("selInfo");
+  if (sel.length === 0) {
+    info.innerHTML = "Ninguna estación seleccionada";
+  } else {
+    const deps = [...new Set(sel.map(s => s[0].replace(/-/g," ").toUpperCase()))];
+    info.innerHTML = `<strong>${sel.length}</strong> estación(es) en <strong>${deps.length}</strong> departamento(s)`;
+  }
+  if (!operando)
+    document.getElementById("btnDescargar").disabled = sel.length === 0;
+}
+
+// ─── Sondear ─────────────────────────────────────────────────
+async function sondear() {
+  if (operando) return;
+  setBusy(true);
+  Object.keys(depState).forEach(k => delete depState[k]);
+  document.getElementById("regionList").innerHTML = `
+    <div class="empty-state">
+      <div class="icon">⏳</div>
+      <p>Iniciando navegador y conectando<br>con SENAMHI...</p>
+    </div>`;
+
+  // Ocultar banner de "cargado desde previo" al iniciar nuevo sondeo
+  document.getElementById("invBanner").classList.remove("visible");
+
+  startSSE();
+  const res = await fetch("/api/sondear", { method: "POST" });
+  if (!res.ok) { setBusy(false); toast("Error al iniciar sondeo", "err"); }
+}
+
+// ─── Descargar ───────────────────────────────────────────────
+async function descargar() {
+  if (operando) return;
+  const seleccion = getSeleccion();
+  if (!seleccion.length) { toast("Selecciona al menos una estación", "err"); return; }
+
+  setBusy(true);
+  delete depState["__descarga__"];
+  document.getElementById("regionList").innerHTML = "";
+
+  startSSE();
+  const res = await fetch("/api/descargar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seleccion })
+  });
+  if (!res.ok) { setBusy(false); toast("Error al iniciar descarga", "err"); }
+}
+
+// ─── Scroll manual ───────────────────────────────────────────
+function scrollRegion(delta) {
+  const list = document.getElementById("regionList");
+  list.scrollBy({ top: delta, behavior: "smooth" });
+}
+
+// ─── Init ────────────────────────────────────────────────────
+startSSE();
+cargarInventario(true); // Al arrancar, carga inventario guardado si existe
+</script>
+</body>
+</html>
